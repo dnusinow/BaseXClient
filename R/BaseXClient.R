@@ -1,7 +1,12 @@
-# library("digest")                       # For digest/md5 
-# library("stringr")                      # For str_trim
-
-## BaseXSession Class
+#' Session class for BaseX
+#' 
+#' \code{BaseXSession} creates a session object that can be used to communicate with the BaseX server.
+#' 
+#' @param user The BaseX database username
+#' @param pass The BaseX user password
+#' @param host The hostname of the machine running the BaseX server
+#' @param port The port that the BaseX server is listening on
+#' @param ... Any additional parameters to pass to the superclass constructor
 BaseXSession <- setRefClass(
   Class = "BaseXSession",
   fields = c("socket", 
@@ -13,6 +18,7 @@ BaseXSession <- setRefClass(
              "last.result"),
   
   methods = list(
+
     initialize = function(user, pass, host = "localhost", port = 1984, ...) {
       host <<- host
       user <<- user
@@ -41,6 +47,7 @@ BaseXSession <- setRefClass(
     },
     
     execute = function(command) {
+      "Sends the character string specified by {command} to the server and returns the result."
       writeBin(command, socket)
       last.result <<- readBin(socket, "character")
       last.info <<- readBin(socket, "character")
@@ -51,6 +58,7 @@ BaseXSession <- setRefClass(
     },
     
     sendInput = function(code, arg, content) {
+      "Internal function used to send common commands. Should not be called by external code."
       command <- c(as.raw(code), 
                    charToRaw(arg), as.raw(0),
                    charToRaw(content), as.raw(0))
@@ -63,34 +71,43 @@ BaseXSession <- setRefClass(
     },
     
     query = function(query) {
+      "Creates a BaseXQuery object using the {query} argument string."
       BaseXQuery(.self, query)
     },
     
     create = function(dbname, content) {
+      "Creates a new database using the name {dbname} 
+      and the character string {content}. {content} may be empty."
       sendInput(8, dbname, content)
     },
     
     add = function(path, input) {
+      "Adds the document {input} to the database specified by {path}."
       sendInput(9, path, input)
     },
     
     replace = function(path, input) {
+      "Replaces the document at {path} with the content in {input}."
       sendInput(12, path, input)
     },
     
     store = function(path, input) {
+      "Stores the {input} content at the database location {path}."
       sendInput(session, 13, path, input)
     },
     
     info = function() {
+      "Returns the value of the last interaction."
       return(last.info)
     },
     
     ok = function() {
+      "Internal function that should not be called by extrnal code."
       return(as.raw(0) == readBin(socket, "raw"))
     },
     
     close = function() {
+      "Close the connection. This is automatically called when the object is garbage collected."
       writeBin("exit", socket)
       close.connection(socket)
       ## rm(socket)
@@ -117,6 +134,7 @@ BaseXQuery <- setRefClass(
   methods = list(
     
     initialize = function(sess, qry, ...) {
+      "Creates a query using the {sess} BaseXSession object and {qry} character string."
       session <<- sess
       id <<- exec(as.raw(0), qry)
       cache <<- new.env()
@@ -125,10 +143,12 @@ BaseXQuery <- setRefClass(
     },
     
     finalize = function() {
+      "Internal destructor function. User code should call the object's close() method instead."
       close()
     },
     
     exec = function(command, arg) {
+      "Internal function. User code should call the object's execute() method to execute the query."
       if(!is.raw(arg)) {
         arg <- charToRaw(arg)
         ##print(arg)
@@ -145,6 +165,7 @@ BaseXQuery <- setRefClass(
     },
     
     execute = function(the.id = NULL) {
+      "Execute the query and return the result."
       if(is.null(the.id)) {
         the.id <- id
       }
@@ -152,6 +173,7 @@ BaseXQuery <- setRefClass(
     },
     
     bind = function(vname, vval, datatype = "") {
+      "Binds variable {vname} to have the value {vval} in the query string."
       exec(as.raw(3), c(charToRaw(id), as.raw(0),
                         charToRaw(vname), as.raw(0),
                         charToRaw(vval), as.raw(0),
@@ -159,12 +181,15 @@ BaseXQuery <- setRefClass(
     },
     
     context = function(vval, datatype = "") {
+      "Binds a value {vval} to the context item"
       exec(as.raw(14), c(charToRaw(id), as.raw(0),
                          charToRaw(vval), as.raw(0),
                          charToRaw(datatype)))
     },
     
     qmore = function() {
+      "Implements the standard more() method for other clients. Checks to see if there are 
+      more results pending from the query."
       
       if(is.null(cache$x) ) {
         
@@ -206,6 +231,8 @@ BaseXQuery <- setRefClass(
     },
     
     qnext = function() {
+      "Implements the standard next() method for other clients. 
+      Returns the next pending result from the query."
       if(qmore()) {
         ret <- cache[["x"]][1]
         cache[["x"]] <<- cache[["x"]][-1]
@@ -216,14 +243,17 @@ BaseXQuery <- setRefClass(
     },
     
     info = function() {
+      "Returns a character vector with information about compilation of the query."
       exec(as.raw(6), id)
     },
     
     options = function() {
+      "Returns a character vector with information about serialization options."
       exec(as.raw(7), id)
     },
     
     updating = function() {
+      "Checks if the query may perform updates. Returns TRUE if so and FALSE if not."
       ret <- exec(as.raw(30), id)
       if(ret == "true") {
         return(TRUE)
@@ -237,6 +267,8 @@ BaseXQuery <- setRefClass(
     },
     
     close = function() {
+      "Closes the query and de-registers it with the server. Should be called by the client
+      but is also called automatically when the query is garbage collected."
       exec(as.raw(2), id)
     })
 )
