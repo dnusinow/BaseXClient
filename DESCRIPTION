@@ -5,7 +5,8 @@ Version: 0.5
 Date: 2013-10-31
 Author: David Nusinow
 Maintainer: David Nusinow <david@gravitypulls.net>
-Depends: methods, stringr, digest
+Depends: methods
+Imports: stringr, digest
 Description: BaseX is an XML database implementing XPath and XQuery 3.0 with full support for the W3C Update and Full Text extensions.
  This package provides a standard client interface to the database.
 License: GPL-2
